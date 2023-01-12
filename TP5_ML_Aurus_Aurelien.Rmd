@@ -1,0 +1,476 @@
+---
+title: "CH5 : Desion Trees & Rondom Forests"
+subtitle: " TP5 : Regression tree"
+author: Aurus Aurelien
+output: 
+  rmdformats::readthedown:
+    highlight: kate
+---
+
+```{r setup,  warning = FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+>In this practical work, we will build some decision trees for both regression and classification problems. Note that there are many packages to do this in `R` . The tree package is the basic package to do so, while the `rpart17` package seems more widely suggested and provides better plotting features. So we will use the `rpart` package.
+
+
+# Question 1 
+
+Load the Boston dataset from `MASS` package. Split the dataset randomly in half.
+
+```{r}
+library(MASS)
+library(caTools)
+
+```
+
+
+```{r}
+set.seed(18)
+Boston_idx = sample(1:nrow(Boston), nrow(Boston) / 2) 
+# You don't know what we just did?
+# open the documentation of the function sample by 
+# writing ?sample in the R console.
+# Note that this is one of the ways to split it randomly and
+#it is not necessary the best.
+Boston_train = Boston[Boston_idx,]
+Boston_test  = Boston[-Boston_idx,]
+
+```
+
+
+# Question 2
+
+Fit a regression tree to the training data using the `rpart()` function from the `rpart` package. Name the tree `Boston_tree`.
+
+```{r}
+library(rpart)
+Boston_tree = rpart(medv~.,Boston_train)
+
+```
+
+>La fonction rpart realise par defaut une estimation des performances de
+l'arbre par validation croisee a 10 blocs pour chaque niveau de simplification pertinent.
+Le nombre de blocs se regle au moment de la construction de l'arbre 
+grace au parametre xval de rpart.control
+
+
+# Question 3
+
+Plot the obtained tree using the following code
+
+```{r}
+plot(Boston_tree)
+text(Boston_tree, pretty = 0)
+title(main = "Regression Tree")
+```
+
+# Question 4
+
+A better plot can be obtained using the `rpart.plot18` package. Re-plot the tree using it. You can use the `rpart.plot()` function which by default, when the output is continuous, each node shows: the predicted value, and the percentage of observations in the node. You can also use the `prp()` function
+
+```{r}
+library(rpart.plot)
+rpart.plot(Boston_tree)
+
+
+```
+```{r}
+prp(Boston_tree)
+
+```
+
+
+# Question 5
+
+Print the obtained tree and print its `summary`. Between the things that you can see in the `summary`, the `CP` (complexity parameter) table and the importance of each variable in the model. Print the `CP` table using the `printcp()` function to see the cross validation results. Plot a comparison figure using the `plotcp()` function. You will notice the obtained tree is pruned. This is because `rpart` prunes the tree by default by performing `10-fold cross-validation`.
+
+```{r}
+print(Boston_tree)
+summary(Boston_tree)
+```
+```{r}
+printcp(Boston_tree)
+plotcp(Boston_tree)
+
+```
+
+> As a rule of thumb, it is best to prune a decision tree using the cp of smallest tree that is within one standard deviation of the tree with the smallest xerror.  In this example, the best xerror is : 
+
+
+> Achieved at :
+
+```{r}
+index_best <- which.min(Boston_tree$cptable[,"xerror"])
+index_best
+#7
+```
+
+> And equal to 
+
+```{r}
+Boston_tree$cptable[index_best,"xerror"]
+# 0.3051705
+```
+
+> With standard deviation : 
+
+```{r}
+Boston_tree$cptable[index_best,"xstd"]
+# 0.0561795
+```
+
+
+> So, we want the smallest tree with xerror less than 0.30517 + 0.05618 = 0.361
+
+
+```{r fig.align="center",fig.width = 15, fig.height = 7}
+
+par(mfrow=c(1,4))
+
+Boston_tree = rpart(medv ~ ., data = Boston_train, cp=-1)
+rpart.plot(Boston_tree)
+
+Boston_tree = rpart(medv ~ ., data = Boston_train)
+rpart.plot(Boston_tree)
+
+Boston_tree <- prune(Boston_tree,cp= 0.02629297)
+rpart.plot(Boston_tree)
+
+
+X <- Boston_train$lstat
+Y <- Boston_train$rm
+Z <- Boston_train$medv
+ZZ = abs(Z)/max(Z)
+plot(Y~X, col=rgb(0, 0, ZZ),lwd = 4, main="trainins set")
+abline(v=5.3,lty=6,col=2)
+abline(h=7.4,lty=6,col=2)
+```
+
+
+> As a rule of thumb, it is best to prune a decision tree using the cp of smallest tree that is within one standard deviation of the tree with the smallest xerror. 
+
+
+# Question 6
+
+Write a function that returns the `RMSE` of two vectors.
+
+
+```{r}
+RMSE = function(a, b){
+  sqrt(mean((a - b)^2))
+}
+
+```
+
+# Question 7
+
+Use the function `predict()` to predict the response on the test set. Then calculate the RMSE obtained with tree model
+
+
+```{r}
+prediction <- predict(Boston_tree, Boston_test)
+
+rmseval <- RMSE(prediction,Boston_test$medv)
+rmseval
+
+```
+
+# Question 8
+
+Fit a linear regression model on the training set. Then predict the response on the test set using the linear model. Calculate the `RMSE` and compare the performance of the tree and the linear regression model.
+
+```{r}
+regmodel = glm(medv~., data = Boston_train)
+predictreg <- predict(regmodel, Boston_test)
+
+rmseval <- RMSE(predictreg,Boston_test$medv)
+rmseval
+
+```
+
+
+
+# Question 9
+
+You can visually compare the performance of both models by plotting the Actual (reality) response values against the predicted values. The model with closer points are to the diagonal (y=x) line is the better one. You can try to reproduce the figure below.
+
+```{r}
+#par(mfrow=c(1,2))
+plot(x=Boston_test$medv,
+     y=prediction)
+
+
+plot(x=predictreg,
+     y=Boston_test$medv)
+abline(a=0,b=1)
+```
+
+# Question 10
+
+Fit a bagged model, using the randomForest() function from the `randomForest` package.
+
+
+
+```{r}
+#install.packages("randomForest")
+library(randomForest)
+model2=randomForest(medv~.,Boston_train,importance=TRUE)
+model2
+summary(model2)
+```
+
+# Question 11
+
+Predict the response on the test set using the bagging model. Calculate the `RMSE`. Is the performance of the model better than linear regression or a simple tree.
+
+
+```{r}
+prediction2=predict(model2,Boston_test)
+RMSE(prediction2,Boston_test$medv)
+```
+
+# Question 12
+
+
+Fit a random forest on the training set and compare its performance with the previous models by calculating the predictions and the `RMSE`.
+
+```{r}
+
+```
+
+# Question 13
+
+Use the function `importance()` from the `randomForest` package to see the most important predictors in the obtained random forest model. What are the three most important predictors? Did you find the same results when you selected the best predictors for the linear regression model during session 2
+
+```{r}
+importance(model2)
+# the most important predictors :
+# lstat with 30 %IncMSE
+# rm 28%
+
+#The first column is the mean decrease in accuracy of the predictions when that variable is removed from the model. The second column is a measure of the total decrease in node impurity resulting from splits over that variable (averaged over all of the trees)
+
+```
+
+# Question 14
+
+Plot the importance of the predictors to the model using the `varImpPlot()` function.
+
+```{r}
+varImpPlot(model2)
+
+```
+
+# Question 15
+
+Using the `gbm()` function like following, fit a boosted model on the training set. Then compare its performance with the previous models by calculating the predictions and the `RMSE`
+
+
+```{r}
+#install.packages("gbm")
+library(gbm)
+modelboost = gbm(medv~.,data = Boston_train)
+predictboost = predict(modelboost,Boston_test,importance = TRUE)
+RMSE(predictboost,Boston_test$medv)
+```
+
+# Question 16
+
+Show the summary of the boosted model. A figure of the variable importance will be shown.
+
+
+```{r}
+modelboost
+summary(modelboost)
+
+```
+
+# Question 17
+
+Construct a final plot to compare the four trained models
+
+```{r}
+par(mfrow=c(2,2))
+
+
+#model boost
+#modelboost = gbm(medv~.,data = Boston_train)
+#predictboost = predict(modelboost,Boston_test,importance = TRUE)
+plot(Boston_test$medv,predictboost,
+     main = "Boosted model",
+     xlab = "Real value",
+     ylab = "Predicted value",
+     col.main="red",
+     col.lab="blue",
+     pch = 20)
+abline(0,1,lwd=2,col='red')
+
+
+#bagged model, using the randomForest()
+#model2=randomForest(medv~.,Boston_train,importance=TRUE)
+#prediction2=predict(model2,Boston_test)
+plot(Boston_test$medv,prediction2,
+     main = "bagged model RandomForest",
+     xlab = "Real value",
+     ylab = "Predicted value",
+     col.main="red",
+     col.lab="blue",
+     pch = 20)
+abline(0,1,lwd=2,col='red')
+
+#linear regression model
+#regmodel = glm(medv~., data = Boston_train)
+#predictreg <- predict(regmodel, Boston_test)
+plot(Boston_test$medv,predictreg,
+     main = "linear regression model",
+     xlab = "Real value",
+     ylab = "Predicted value",
+     col.main="red",
+     col.lab="blue",
+     pch = 20)
+abline(0,1,lwd=2,col='red')
+
+#regression tree to the training data using the rpart() function
+#Boston_tree = rpart(medv~.,Boston_train)
+#prediction <- predict(Boston_tree, Boston_test)
+plot(Boston_test$medv,prediction,
+     main = "Regression tree",
+     xlab = "Real value",
+     ylab = "Predicted value",
+     col.main="red",
+     col.lab="blue",
+     pch = 20)
+abline(0,1,lwd=2,col='red')
+```
+
+# XGBoost : Extreme Gradient Boosting 
+
+> XGBoost is an optimized distributed gradient boosting library designed to be highly efficient, flexible and portable. It implements machine learning algorithms under the Gradient Boosting framework. XGBoost provides a parallel tree boosting (also known as GBDT, GBM) that solve many data science problems in a fast and accurate way. Since its introduction, this algorithm has not only been credited with winning numerous Kaggle competitions but also for being the driving force under the hood for several cutting-edge industry applications
+
+
+```{r}
+library(xgboost)
+library(caret)
+
+indexes = createDataPartition(Boston$medv, p = .85, list = F)
+train = Boston[indexes, ]
+test = Boston[-indexes, ]
+
+train_x = data.matrix(train[, -13])
+train_y = train[,13]
+
+test_x = data.matrix(test[, -13])
+test_y = test[, 13]
+
+xgb_train = xgb.DMatrix(data = train_x, label = train_y)
+xgb_test = xgb.DMatrix(data = test_x, label = test_y)
+
+xgbc = xgboost(data = xgb_train, max.depth = 2, nrounds = 50)
+print(xgbc)
+
+Boston_xgboost_pred = predict(xgbc, xgb_test)
+
+RMSE(Boston_xgboost_pred, test_y)
+
+
+```
+# Classification tree
+
+A classification tree is very similar to a regression tree, except that the classification tree is used to predict a qualitative response rather than a quantitative one. Recall that for a regression tree, the predicted response for an observation is given by the mean response of the training observations that belong to the same terminal node. In contrast, for a classification tree, we predict that each observation belongs to the most commonly occurring class of training observations in the region to which it belongs.
+
+To construct classification trees, we will use the spam21 dataset. A description of the dataset is given below.
+
+
+# Question 18
+For the rest of this PW, you must:
+Import the spam dataset and explore it. Be aware that it is preferable that the response column is of type factor.
+Split the dataset into training and test sets (choose your own seed when using set.seed()).
+Fit (using rpart and gbm packages):
+
+A Logistic regression model.
+A simple classification tree.
+Bagging,
+Random Forests,
+Boosting models.
+For each model, predict the response on the test set and evaluate the performance of the model, using the prediction accuracy (create a function that returns the accuracy for two binary vectors).
+```{r}
+df <- read.csv("C:/Users/Papa/Documents/spam.csv")
+set.seed(123)
+
+library(ipred) #for bagging()
+
+#convert all_star column to 1s and 0s
+df$spam <- as.integer(as.logical(df$spam))
+
+summary(df)
+str(df)
+
+sample = sample(c(TRUE, FALSE), nrow(df), replace=TRUE, prob=c(0.7,0.3))
+
+#training_data = df[split,]
+#testing_data = df[-split,]
+training_data = df[sample, ]
+testing_data = df[!sample, ]
+
+
+model_logistic_classification_tree=model <- glm(spam~. , family="binomial", data=training_data)
+model_classification_tree = rpart(spam~. , data=training_data)
+model_Bagging = bagging(spam~. , data=training_data)
+model_Random_Forest=randomForest(spam~. , data=training_data)
+model_boosting=gbm(spam~. , data=training_data)
+
+
+```
+
+```{r}
+
+
+prediction_model_logistic_classification_tree=predict(model_logistic_classification_tree,testing_data)
+RMSE(testing_data$spam,prediction_model_logistic_classification_tree)
+
+
+prediction_model_classification_tree=predict(model_classification_tree,testing_data)
+RMSE(testing_data$spam,prediction_model_classification_tree)
+
+
+prediction_model_Random_Forest=predict(model_Random_Forest,testing_data)
+RMSE(testing_data$spam,prediction_model_Random_Forest)
+
+
+prediction_model_Bagging=predict(model_Bagging,testing_data)
+RMSE(testing_data$spam,prediction_model_Bagging)
+
+
+prediction_model_boosting=predict(model_boosting,testing_data)
+RMSE(testing_data$spam,prediction_model_boosting)
+
+
+
+
+```
+
+# Tuning tree
+
+So far in this PW, we fit bagging, boosting and random forest models, but did not tune any of them, we simply used certain, somewhat arbitrary, parameters. Actually, to make these models better the parameters should be tuned. The parameters include:
+
+Bagging: Actually just a subset of Random Forest with mtry = p. Random Forest: mtry *Boosting: n.trees, interaction.depth, shrinkage, n.minobsinnode
+
+The caret package provides excellent functions to accomplish this. Note that with these tree-based ensemble methods there are two resampling solutions for tuning the model:
+
+Out of Bag Cross-Validation Using Out of Bag samples is advantageous with these methods as compared to Cross-Validation since it removes the need to refit the model and is thus much more computationally efficient. Unfortunately OOB methods cannot be used with gbm models. See the caret documentation for details
+
+
+# Question 19
+19. Use the caret functions to tune your trained models
+
+```{r}
+#install.packages(caret)
+# Load the caret package
+library(caret)
+
+# See available algorithms in caret
+modelnames <- paste(names(getModelInfo()), collapse=',  ')
+modelnames
+```

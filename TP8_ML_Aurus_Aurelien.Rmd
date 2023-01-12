@@ -1,0 +1,470 @@
+---
+title: "CH8 : Clustering"
+subtitle: " TP8  : Clustering"
+author: AURUS Aurelien
+output: 
+  rmdformats::readthedown:
+    highlight: kate
+---
+
+```{r setup,  out.width="100%", out.height="100%",warning = FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+# K-means
+
+## Question 1
+
+Download the dataset: Ligue1 2017-2018 and import it into `R`. Put the argument `row.names` to 1
+
+```{r}
+
+ligue1 <- read.csv("C:/Users/Papa/Documents/ligue1_17_18.csv", row.names=1, sep=";")
+
+```
+
+## Question 2
+
+Print the first two rows of the dataset and the total number of features in this dataset
+
+```{r}
+
+head(ligue1,2)
+
+```
+
+## Question 3
+
+We will first consider a smaller dataset to easily understand the results of `k-means`. Create a new dataset in which you consider only `Points` and `yellow.cards` from the original dataset. Name it `pointsCards`
+
+
+```{r}
+library(dplyr)
+pointsCards=select(ligue1,Points,yellow.cards)
+
+pointsCards
+```
+
+## Question 4
+
+Apply `k-means` on pointsCards. Chose `k=2` clusters and put the number of iterations to 20. Store your results into km. (Remark: `kmeans()` uses a random initialization of the clusters, so the results may vary from one call to another. Use `set.seed()` to have reproducible outputs).
+
+
+```{r}
+
+set.seed(123)
+km=kmeans(pointsCards,centers = 2,nstart = 20)
+
+```
+
+
+## Question 5
+
+Print and describe what is inside km
+
+```{r}
+print(km)
+#The 2 clusters are made which are of 4,16 sizes respectively. Within the cluster, the sum of squares is 64.6%.
+
+```
+
+
+## Question 6
+
+What are the coordinates of the centers of the clusters (called also prototypes or centroids) ?
+```{r}
+
+km$centers
+
+# first cluster coordinates 1--> (82,44)
+# second cluster coordinates 2--> (71.2500,71.5625)
+```
+
+
+## Question 7
+
+Plot the data (Yellow.cards vs Points). Color the points corresponding to their cluster.
+
+```{r}
+plot(pointsCards$yellow.cards,pointsCards$Points)
+
+
+
+```
+
+
+## Question 8
+
+Add to the previous plot the clusters centroids and add the names of the observations.
+
+```{r}
+# another method
+library(factoextra)
+library(cluster)
+fviz_cluster(km, data = pointsCards)
+```
+
+
+
+
+## Question 9
+
+Re-run k-means on pointsCards using 3 and 4 clusters and store the results into km3 and km4 respectively. Visualize the results like in question 7 and 8.
+
+```{r}
+km3=kmeans(pointsCards,centers = 3,nstart = 20)
+km4=kmeans(pointsCards,centers = 4,nstart = 20)
+
+fviz_cluster(km3, data = pointsCards)
+fviz_cluster(km4, data = pointsCards)
+
+
+```
+
+
+## Question 10
+
+Use this  code to visualize the `within groups sum of squares` of the `k-means` clustering results 
+```{r}
+
+mydata <- pointsCards
+wss <- (nrow(mydata)-1)*sum(apply(mydata,2,var))
+for (i in 2:15){
+    wss[i] <- sum(kmeans(mydata,centers=i)$withinss)
+    }
+
+plot(1:15, wss, type="b", xlab="Number of Clusters",
+      ylab="Within groups sum of squares")
+
+```
+
+
+## Question 11
+
+Modify the code of the previous question in order to visualize the `between_SS / total_SS`. Interpret the results.
+
+```{r}
+mydata <- pointsCards
+#wss <- (nrow(mydata)-1)*sum(apply(mydata,2,var))
+for (i in 1:15){
+  kkm=kmeans(mydata,centers=i)
+    wss[i] <- sum(kkm$betweenss/kkm$totss)
+    }
+
+plot(1:15, wss, type="b", xlab="Number of Clusters",
+      ylab="Within groups sum of between_SS / total_SS")
+
+# SS stands for Sum of Squares, so it's the usual decomposition of deviance in deviance "Between" and deviance "Within"
+
+# the between_SS is approaching to Total_ss ratio when number of cluster increase
+
+# Ideally you want a clustering that has the properties of internal cohesion and external separation, i.e. the BSS/TSS ratio should approach 1.
+```
+
+
+
+## Question 12
+
+Now we consider all features. Scale the dataset and transform it to a data frame again. Store the scaled dataset into ligue1_scaled.
+
+```{r}
+ligue1_scaled=scale(ligue1)
+ligue1_scaled=data.frame(ligue1_scaled)
+head(ligue1_scaled)
+```
+
+
+## Question 13
+
+Apply `kmeans()` on ligue1 and on ligue1_scaled using 3 clusters and 20 iterations. Store the results into km.ligue1 and km.ligue1.scaled respectively (do not forget to set a seed)
+
+```{r}
+set.seed(123)
+km.ligue1=kmeans(ligue1,centers = 3,nstart = 20)
+
+km.ligue1_scaled=kmeans(ligue1_scaled,centers = 3,nstart = 20)
+
+```
+
+## Question 14
+
+How many observations there are in each cluster of km.ligue1 and km.ligue1.scaled ? (you can use `table()`). Do you obtain the same results when you perform `kmeans()` on the scaled and unscaled data?
+
+```{r}
+table(km.ligue1$cluster)
+table(km.ligue1_scaled$cluster)
+# 8 8 4 observations for the cluster umber 1,2,3
+# yes we obtain the same results for the scaled data
+```
+
+
+## Question 15
+
+Now we try to combine clustering with `PCA` to plot our high dimensionnal clustering. Apply `PCA` on ligue1 dataset and store you results in pcaligue1. Do we need to apply `PCA` on the scaled dataset? Justify your answer.
+
+```{r}
+library(FactoMineR) # for PCA
+pcaligue1=PCA(ligue1)
+
+# we don't need to apply PCA on the scaled dataset, beacause the transformation is uniform?
+```
+
+## Question 16
+
+Plot the observations and the variables on the first two principal components (biplot). Interpret the results.
+
+```{r}
+
+fviz_pca_biplot(pcaligue1)
+# interpretation ?
+```
+
+
+## Question 17
+
+Visualize the teams on the first two principal components and color them with respect to their cluster
+```{r}
+
+```
+
+```{r}
+var = get_pca_var(pcaligue1)
+
+```
+
+## Question 18
+
+Recall that the figure of question 17 is a visualization with `PC1` and `PC2` of the clustering done with all the variables, not on `PC1` and `PC2`. Now apply the `kmeans()` clustering taking only the first two `PCs` instead the variables of original dataset. Visualize the results and compare with the question 17.
+
+```{r}
+
+
+
+```
+
+
+# Hierarchical Clustering
+
+## Question 1
+
+We will perform hierarchical clustering on customer data, which involves segmenting customers into different groups. Load the file `customer.csv` and name the data : `customer_data`
+
+```{r}
+
+customer_data <- read.csv("C:/Users/Papa/Documents/customer.csv")
+
+```
+
+## Question 2
+
+Show its summary and structure
+
+```{r}
+summary(customer_data)
+str(customer_data)
+```
+
+## Question 3
+
+Chek that there is no missing data and then normalize the customer data into the same scale
+
+
+```{r}
+sapply(customer_data, function(x) sum(is.na(x)))
+customer_data_scaled=scale(customer_data)
+```
+
+
+Before applying any clustering algorithm to a unknown structure data, the first thing to do is to assess the clustering tendency. That is, whether the data contains any inherent grouping structure.
+
+If yes, then how many clusters are there. Next, you can perform hierarchical clustering or partitioning clustering (with a pre-specified number of clusters). Finally, evaluate the goodness of the clustering results.
+
+To assess the clustering tendency, the Hopkins' statistic and a visual approach can be used. This can be performed using the function `get_clust_tendency()` from the `factoextra` package, which creates an ordered dissimilarity image (ODI): If the value of Hopkins statistic is close to 1 (far above 0.5), then we can conclude that the dataset is significantly clusterable.Moreover, the visual approach detects the clustering tendency by counting the number of square shaped dark (or colored) blocks along the diagonal in the ordered dissimilarity image
+
+
+## Question 4
+
+Compute the Hopkins statistic and evaluate the cluster structure
+
+```{r}
+get_clust_tendency(customer_data_scaled,n=5)
+
+```
+
+Now we have a first estimation of the number of clusters :4, lets go deeply to answer his question. In fact, there are different methods for determining the optimal number of clusters: `NbClust` R package, provides 30 indices for determining the best number of clustersusing the function `NbClust` by fixing the following imputs:
+
+* `data`: matrix
+* `diss`: dissimilarity matrix to be used. By default, `diss=NULL`, but if it is replaced by a dissimilarity matrix, distance should be `NULL`.
+* `distance`: the distance measure to be used to compute the dissimilarity matrix. Possible values include `euclidean`, `manhattan` or `NULL`.
+* `min.nc`, `max.nc`: minimal and maximal number of clusters, respectively.
+* `method`: The cluster analysis method to be used including `ward.D`, `ward.D2`, `single`, `complete`, `average`, `means` and more.
+
+To compute `NbClust()` for kmeans, use `method = "kmeans"`. To compute `NbClust()` for hierarchical clustering, method should be one of c(`ward.D`, `ward.D2`, `single`, `complete`, `average`)
+
+
+
+## Question 5
+
+Estimate the optimal number of cluster for the customer data using `NbClust` function
+
+```{r}
+library(NbClust)
+NbClust(data=customer_data_scaled,
+        min.nc=2, max.nc=20,
+        distance = "euclidean",
+        method="single")
+
+```
+
+
+## Question 6
+
+Use agglomerative hierarchical clustering to cluster the customer data
+
+```{r}
+library("cluster")
+# Agglomerative Nesting (Hierarchical Clustering)
+res.agnes <- agnes(x = customer_data_scaled, # data matrix
+                   stand = TRUE, # Standardize the data
+                   metric = "euclidean", # metric for distance matrix
+                   method = "ward" # Linkage method
+                   )
+
+
+```
+
+
+## Question 7
+
+Plot the dendogram by specifying hang to display labels at the bottom of the dendrogram, and cex to shrink the label to 70 percent of the normal size
+
+```{r}
+
+# cex: label size
+library("factoextra")
+fviz_dend(res.agnes, cex = 0.5)
+
+```
+
+In a dendrogram, we can see the hierarchy of clusters, but we have not grouped data into different clusters yet. However, we can determine how many clusters are within the dendrogram and cut the dendrogram at a certain tree height to separate the data into different groups. We will use the cutree function to separate the data into a given number of clusters.
+
+We can determine the number of clusters from the dendrogram,here there should be four clusters within the tree. Therefore, we will specify the number of clusters as 4 in the cutree function. Besides using the number of clusters to cut the tree, we can also specify the height as the cut tree parameter. Next, we can output the cluster labels of the data and use the table function to count the number of data within each cluster. From the counting table, we find that most of the data is in cluster 4. Lastly, we can draw red rectangles around the clusters to show how data is categorized into the four clusters with the `rect.hclust` function
+
+## Question 8
+
+Cut trees into clusters and show cluster labels for the data.
+
+```{r}
+# Cut tree into 4 groups
+grp <- cutree(res.agnes, k = 4)
+head(grp, n = 6)
+
+
+```
+
+
+## Question 9
+
+Show the count of data within each cluster using the function `table`
+
+```{r}
+
+table(grp)
+
+```
+
+
+## Question 10
+
+Visualize the clustered data with red rectangle border
+
+```{r}
+fviz_dend(res.agnes,
+          cex = 0.5, k = 4,
+          rect = TRUE,rect_border="red",
+           k_colors =c("blue", "green3", "red", "black"))
+
+
+```
+
+
+## Question 11
+
+Hilight the cluster 2 with red rectangle border
+
+```{r}
+
+```
+
+
+
+## Question 12
+
+Using the function `fviz_cluster()` [in `factoextra`], visualize the result in a scatter plot: Observations are represented by points in the plot, using principal components. A frame is drawn around each cluster
+
+```{r}
+#res.agnes2= hclust(dist(customer_data_scaled),method="complete")
+#fviz_cluster(res.agnes)
+
+
+```
+
+Next, we'll use the package `dendextend` which contains many functions for comparing two dendrograms.
+
+## Question 13
+
+Compute two hierarchical clusterings using 'complete' and 'centroid' linkage. Compute two dendograms and use the function `tanglegram()` to plot the two dendrograms, side by side, with their labels connected by lines. This method can be used for visually comparing two methods of Hierarchical clustering
+
+```{r}
+library(dendextend)
+
+hierarchical1=hclust(dist(customer_data_scaled),method="complete")
+hierarchical2=hclust(dist(customer_data_scaled),method="centroid")
+
+
+fviz_dend(hierarchical1, cex = 0.5)
+fviz_dend(hierarchical2, cex = 0.5)
+
+
+
+```
+
+Note that `unique` nodes, with a combination of labels/items not present in the other tree, are highlighted with dashed lines.
+
+## Question 14
+
+The quality of the alignment of the two trees can be measured using the function `entanglement()` (a 1 score is the best possible value).
+
+```{r}
+entanglement(hierarchical1,hierarchical2)
+
+
+```
+
+A simple way to compare many dendogram is a correlation matrix between a list of dendrogram
+
+## Question 15
+
+Compare simultaneously multiple dendrograms using the chaining operator `%>%` (available in `dendextend`) which is used to run multiple function at the same time.
+ 
+```{r}
+library(dendextend)
+
+
+```
+
+Alternatively, we can use the agnes function from the `cluster` packages. This functions behave very similarly; however, it can also get the agglomerative coefficient, which measures the amount of clustering structure found (values closer to 1 suggest strong clustering structure).
+
+## Question 16
+
+Find which hierarchical clustering methods can identify stronger clustering structures among the following linkages :  `average`, `single`, `complete`,  `ward`.
+
+```{r}
+
+
+
+```
+

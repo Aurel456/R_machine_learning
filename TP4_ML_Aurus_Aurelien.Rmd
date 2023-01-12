@@ -1,0 +1,252 @@
+---
+title: "CH3 : Logistic Regression"
+subtitle: " TP4"
+author: Nom Prenom
+output: 
+  rmdformats::readthedown:
+    highlight: kate
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+>In this PW we are going to analyse the `Social_Network_Ads` dataset. This dataset contains informations of users of a social network. The social network has several business clients and its business clients put ads on the social network for marketing compaigns purposes. For this dataset, a company has put ads for one of its new products and the social network gathered some informations about wich users responded positively to the ad by buying the product and those who responded negatively by not buying the product.
+
+
+# Question 1 
+
+Import the `Social_Network_Ads` dataset into `R`
+
+```{r}
+library(readxl)
+df <- read.csv("C:/Users/Papa/Documents/Social_Network_Ads.csv")
+
+```
+
+# Question 2
+
+Describe the dataset (you can use `str()` and `summary()` functions).
+
+```{r}
+str(df)
+
+```
+
+```{r}
+summary(df)
+```
+
+
+>We will consider the variables Age and EstimatedSalary as input variables (features) to see the correlations between them and the decision of the user to buy (or not) the product
+
+# Question 3
+
+Now we are going to split the dataset into training set and test set. Last week we did it manually. From now on split it randomly with caTools packages
+
+```{r}
+library(caTools) # install it first in the console
+set.seed(123) # we use this function with the same number to randomly generate the same values
+
+split = sample.split(df$Purchased, SplitRatio = 0.75)
+
+#training_data = df[split,]
+#testing_data = df[-split,]
+training_data = subset(df, split == TRUE)
+testing_data = subset(df, split == FALSE)
+str(training_data)
+```
+
+# Question 4
+
+Scale the input variables in both training set and test set.
+
+```{r}
+training_data[, 3:4] = scale(training_data[, 3:4])
+testing_data[, 3:4] = scale(testing_data[, 3:4])
+summary(training_data)
+```
+
+# Question 5
+
+Fit a simple logistic regression model of `Purchased` in function of `Age`
+
+```{r}
+
+model = glm(Purchased~Age, data = training_data,family=binomial)
+summary(model)
+```
+
+# Question 6
+
+In the argument `family` of the function `glm` we chose `binomial`. Why ?
+
+
+```{r}
+#we want a Logistic regression, not other type of generalised linear regression
+# binomial --> the outcome is in [0,1]
+```
+
+# Question 7
+
+What is the equation of the obtained model in the question 1.5 ?
+
+
+```{r}
+
+#y=exp(b0 +b1*x1)/(1 + exp(b0 +b1*x1)
+#y : Purchased,  x : Age,  b1 = 1.9913 ,  b0 = -0.9299 
+```
+
+# Question 8
+
+Is the feature `Age` significant?
+
+```{r}
+# p-value < 0.05 and b1!=0 --> age is significant
+
+```
+
+
+The `AIC` is the `Akaike Information Criterion`. You will use this while comparing multiple models. The model with lower value of `AIC` is better. Suppose that we have a statistical model of some data. Let $L$ be the maximum value of the likelihood function for the model; let `k` be the number of estimated parameters in the model. Then the `AIC` value of the model is the following.
+
+$AIC=2k2ln(L)$
+
+where
+
+* $L$ = the maximized value of the likelihood function of the model $M$, i.e. $L=p(x|β,M)$, where $β$ are the parameter values that maximize the likelihood function.
+* x= the observed data.
+* k= the number of free parameters to be estimated. If the model under consideration is a linear regression, k is the number of regressors, including the intercept.
+
+
+# Question 9
+
+What is the value of AIC of the model
+
+```{r}
+summary(model)
+
+#AIC: 256.11
+```
+
+# Question 10
+
+Plot `Purchased` in function of `Age` and add the curve of the obtained logistic regression model.
+
+(Hints: First plot the point, then use the `curve()` function with option `add=TRUE` to add the curve to the plot. The argument `type` of the function `predit()` must be `reponse`)
+
+
+
+```{r}
+model = glm(Purchased~Age, data = training_data,family=binomial)
+
+plot(training_data$Age,training_data$Purchased)
+curve(predict(model, data.frame(Age=x), type="response"), add=TRUE)
+
+```
+
+# Question 11
+
+Now let us take another feature into account in the model. Fit a logistic regression model of `purchasing` the product in function of the `age` of the user and its `salary`.
+
+
+```{r}
+model2 = glm(Purchased~Age+EstimatedSalary, data = training_data,family=binomial)
+summary(model2)
+
+```
+
+# Question 12
+
+
+Are the predictors significant?
+
+```{r}
+#p-values <0.05 and  Estimate Std != 0 --> the values are significant
+```
+
+# Question 13
+
+Did the model get better by adding the estimated salary?
+
+```{r}
+
+#AIC: 205.78 < 256.11 --> the model is better
+
+```
+
+# Question 14
+
+On the test set, predict the probability of purchasing the product by the users using the obtained model
+
+
+```{r}
+summary(model2)
+
+testing_data$probability_Purchased2=predict(model2,testing_data,type="response")
+
+
+#testing_data$probability_Purchased=(exp(-1.1923 + 2.6324*testing_data$Age +1.3947*testing_data$EstimatedSalary))/(1+exp(-1.1923 + 2.6324*testing_data$Age +1.3947*testing_data$EstimatedSalary))
+
+View(testing_data)
+                                                                                             
+```
+
+# Question 15
+
+Take a look on your predicted values for the variable Purchased. We predicted the probability that the user will purchase the product right? Now in order to compare your results with the real answers, transform the predicted values to 0 or 1 (1 if >0.5).
+
+
+```{r}
+testing_data$prediction_Purchased=ifelse(testing_data$probability_Purchased2>0.5,1,0)
+
+```
+
+# Question 16
+
+Now to evaluate the predictions, compute the confusion matrix. What do you obtain ?
+
+
+```{r}
+library(caret)
+View(testing_data)
+str(testing_data)
+#testing_data$Purchased=as.numeric(testing_data$Purchased)
+confusionMatrix(testing_data$probability_Purchased2, reference = testing_data$Purchased)
+```
+
+# Question 17
+
+Calculate the accuracy, specificity, sensitivity and the precision of the model
+
+```{r}
+
+
+```
+
+
+
+
+# Question 18
+
+Plot the ROC curve and calculate AUC value
+
+```{r}
+#library(ROCR)
+
+
+
+```
+
+# Question 19
+
+Compare the AUC of the two models you fitted (one with only age and one with age and estimated salary) and plot their ROC curves in the same figure.
+
+
+
+```{r}
+
+```
+
+
